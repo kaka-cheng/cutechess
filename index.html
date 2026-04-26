@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>可愛象棋樂園</title>
+<style>
+body{
+  margin:0;
+  font-family:"Comic Sans MS","Arial",sans-serif;
+  background:linear-gradient(180deg,#fff7d6,#ffd9ec);
+  text-align:center;
+  min-height:100vh;
+}
+#startScreen{
+  position:fixed;
+  inset:0;
+  background:linear-gradient(180deg,#ffe8f3,#fff6c7);
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  z-index:10;
+}
+#startScreen h1{
+  font-size:42px;
+  color:#ff5a8a;
+  margin:0;
+}
+#startScreen p{
+  font-size:20px;
+  color:#6b4b4b;
+}
+#startBtn{
+  background:#ff8db3;
+  color:white;
+  border:none;
+  border-radius:20px;
+  padding:14px 28px;
+  font-size:20px;
+  cursor:pointer;
+  box-shadow:0 6px 0 #d96a93;
+}
+canvas{
+  background:#fff2c9;
+  border:6px solid #ffb347;
+  border-radius:18px;
+  box-shadow:0 8px 20px rgba(0,0,0,0.15);
+}
+#status{margin:12px;font-size:20px;font-weight:bold;color:#7a3d00;}
+button{margin:10px;padding:12px 22px;border:none;border-radius:14px;background:#7dd3fc;font-size:18px;}
+canvas{
+  background:#d8a45d;
+  border:3px solid #5b3a1e;
+}
+#status{margin:10px;font-size:18px;font-weight:bold;}
+button{margin:10px;padding:10px 20px;}
+</style>
+</head>
+<body>
+<div id="startScreen">
+  <h1>🐼 可愛象棋樂園 🐰</h1>
+  <p>和電腦一起快樂下象棋！</p>
+  <button id="startBtn" onclick="startGame()">開始遊戲</button>
+</div>
+<h1 style="color:#ff5a8a;">🌟 可愛象棋樂園 🌟</h1>
+<div id="status">你的回合（紅方）</div>
+<canvas id="board" width="540" height="600"></canvas>
+<br>
+<button onclick="resetGame()">重新開始</button>
+
+<script>
+let audioCtx;
+function playTone(freq,duration=0.12){
+  if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  const osc=audioCtx.createOscillator();
+  const gain=audioCtx.createGain();
+  osc.type="sine";
+  osc.frequency.value=freq;
+  gain.gain.value=0.08;
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  gain.gain.exponentialRampToValueAtTime(0.0001,audioCtx.currentTime+duration);
+  osc.stop(audioCtx.currentTime+duration);
+}
+function sfxSelect(){playTone(660,0.08);}
+function sfxMove(){playTone(523,0.12);}
+function sfxCapture(){playTone(392,0.18); setTimeout(()=>playTone(262,0.18),120);}
+function sfxWin(){playTone(784,0.15); setTimeout(()=>playTone(988,0.18),150); setTimeout(()=>playTone(1175,0.25),320);}
+const canvas=document.getElementById("board");
+const ctx=canvas.getContext("2d");
+const cell=60;
+
+const PIECE_NAME={
+ r:"車",h:"馬",e:"象",a:"士",k:"將",c:"炮",p:"卒",
+ R:"俥",H:"傌",E:"相",A:"仕",K:"帥",C:"炮",P:"兵"
+};
+
+let board=[];
+let selected=null;
+let possibleMoves=[];
+let turn="red";
+
+function cloneBoard(b){
+  return b.map(r=>r.slice());
+}
+
+function initBoard(){
+board=[
+["r","h","e","a","k","a","e","h","r"],
+["","","","","","","","",""],
+["","c","","","","","","c",""],
+["p","","p","","p","","p","","p"],
+["","","","","","","","",""],
+["","","","","","","","",""],
+["P","","P","","P","","P","","P"],
+["","C","","","","","","C",""],
+["","","","","","","","",""],
+["R","H","E","A","K","A","E","H","R"]
+];
+}
+
+function drawBoard(){
+  ctx.clearRect(0,0,540,600);
+  ctx.save();
+
+  for(let i=0;i<9;i++){
+    ctx.beginPath();
+    if(i===0||i===8){
+      ctx.moveTo(30+i*cell,30);
+      ctx.lineTo(30+i*cell,570);
+    }else{
+      ctx.moveTo(30+i*cell,30);
+      ctx.lineTo(30+i*cell,270);
+      ctx.moveTo(30+i*cell,330);
+      ctx.lineTo(30+i*cell,570);
+    }
+    ctx.stroke();
+  }
+
+  for(let i=0;i<10;i++){
+    ctx.beginPath();
+    ctx.moveTo(30,30+i*cell);
+    ctx.lineTo(510,30+i*cell);
+    ctx.stroke();
+  }
+
+  ctx.font = "32px serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "red";
+  ctx.fillText("楚河",240,300);
+  ctx.fillText("漢界",300,300);
+  ctx.fillStyle = "black";
+
+  ctx.beginPath();
+  ctx.moveTo(210,30); ctx.lineTo(330,150);
+  ctx.moveTo(330,30); ctx.lineTo(210,150);
+  ctx.moveTo(210,450); ctx.lineTo(330,570);
+  ctx.moveTo(330,450); ctx.lineTo(210,570);
+  ctx.stroke();
+
+  for(let y=0;y<10;y++){
+    for(let x=0;x<9;x++){
+      let p=board[y][x];
+      if(p) drawPiece(x,y,p);
+    }
+  }
+
+  for(let move of possibleMoves){
+    if(board[move.y][move.x]){
+      ctx.beginPath();
+      ctx.strokeStyle = "rgba(0,120,255,0.9)";
+      ctx.lineWidth = 3;
+      ctx.arc(30+move.x*cell,30+move.y*cell,26,0,Math.PI*2);
+      ctx.stroke();
+      ctx.lineWidth = 1;
+    }else{
+      ctx.beginPath();
+      ctx.fillStyle = "rgba(0,120,255,0.35)";
+      ctx.arc(30+move.x*cell,30+move.y*cell,8,0,Math.PI*2);
+      ctx.fill();
+    }
+  }
+
+  ctx.restore();
+}
+
+function drawPiece(x,y,p){
+let red=(p===p.toUpperCase());
+ctx.beginPath();
+ctx.arc(30+x*cell,30+y*cell,22,0,Math.PI*2);
+ctx.fillStyle=red?"#ffe0e9":"#dff7ff";
+ctx.fill();
+ctx.strokeStyle=red?"#ff5a8a":"#4fa3d1";
+ctx.lineWidth=3;
+ctx.stroke();
+ctx.fillStyle=red?"#d6336c":"#1f6f8b";
+ctx.font="22px sans-serif";
+ctx.textAlign="center";
+ctx.textBaseline="middle";
+ctx.fillText(PIECE_NAME[p],30+x*cell,30+y*cell);
+ctx.lineWidth=1;
+}
+
+function isRed(p){return p&&p===p.toUpperCase();}
+
+function insidePalace(x,y,red){
+if(red) return x>=3&&x<=5&&y>=7&&y<=9;
+return x>=3&&x<=5&&y>=0&&y<=2;
+}
+
+function validMove(sx,sy,tx,ty,b=board){
+let p=b[sy][sx];
+let t=b[ty][tx];
+if(!p) return false;
+if(t&&isRed(p)===isRed(t)) return false;
+let dx=tx-sx,dy=ty-sy;
+let red=isRed(p);
+
+switch(p.toLowerCase()){
+case"r":
+if(dx!==0&&dy!==0) return false;
+return clearPath(sx,sy,tx,ty,b);
+
+case"h":{
+if(!((Math.abs(dx)===2&&Math.abs(dy)===1)||(Math.abs(dx)===1&&Math.abs(dy)===2))) return false;
+let bx=sx+(Math.abs(dx)===2?dx/2:0);
+let by=sy+(Math.abs(dy)===2?dy/2:0);
+if(b[by][bx]) return false;
+return true;
+}
+
+case"e":{
+if(Math.abs(dx)!==2||Math.abs(dy)!==2) return false;
+let ex=sx+dx/2,ey=sy+dy/2;
+if(b[ey][ex]) return false;
+if(red&&ey<5) return false;
+if(!red&&ey>4) return false;
+return true;
+}
+
+case"a":
+if(Math.abs(dx)!==1||Math.abs(dy)!==1) return false;
+return insidePalace(tx,ty,red);
+
+case"k":
+if(Math.abs(dx)+Math.abs(dy)!==1) return false;
+return insidePalace(tx,ty,red);
+
+case"c":{
+if(dx!==0&&dy!==0) return false;
+let count=0;
+if(dx===0){
+for(let y=Math.min(sy,ty)+1;y<Math.max(sy,ty);y++) if(b[y][sx]) count++;
+}else{
+for(let x=Math.min(sx,tx)+1;x<Math.max(sx,tx);x++) if(b[sy][x]) count++;
+}
+if(t) return count===1;
+return count===0;
+}
+
+case"p":
+if(red){
+if(sy<=4&&dy!==-1) return false;
+if(sy>4&&(Math.abs(dx)+Math.abs(dy)!==1||dy>0)) return false;
+}else{
+if(sy>=5&&dy!==1) return false;
+if(sy<5&&(Math.abs(dx)+Math.abs(dy)!==1||dy<0)) return false;
+}
+return true;
+}
+return false;
+}
+
+function clearPath(sx,sy,tx,ty,b){
+if(sx===tx){let s=sy<ty?1:-1;for(let y=sy+s;y!==ty;y+=s) if(b[y][sx]) return false;}
+else{let s=sx<tx?1:-1;for(let x=sx+s;x!==tx;x+=s) if(b[sy][x]) return false;}
+return true;
+}
+
+// ========= MINIMAX AI =========
+
+const VAL={k:10000,a:110,e:110,h:300,r:500,c:300,p:30};
+
+function evaluate(b){
+let score=0;
+for(let y=0;y<10;y++)for(let x=0;x<9;x++){
+let p=b[y][x];
+if(!p) continue;
+let v=VAL[p.toLowerCase()]||0;
+score += isRed(p)?v:-v;
+}
+return score;
+}
+
+function getMoves(b,redTurn){
+let moves=[];
+for(let y=0;y<10;y++)for(let x=0;x<9;x++){
+let p=b[y][x];
+if(!p) continue;
+if(isRed(p)!==redTurn) continue;
+for(let ty=0;ty<10;ty++)for(let tx=0;tx<9;tx++){
+if(validMove(x,y,tx,ty,b)){
+moves.push({x,y,tx,ty});
+}
+}
+}
+return moves;
+}
+
+function minimax(b,depth,redTurn){
+if(depth===0) return evaluate(b);
+
+let moves=getMoves(b,redTurn);
+if(moves.length===0) return evaluate(b);
+
+if(redTurn){ // maximize
+let best=-1e9;
+for(let m of moves){
+let nb=cloneBoard(b);
+nb[m.ty][m.tx]=nb[m.y][m.x];
+nb[m.y][m.x]="";
+best=Math.max(best,minimax(nb,depth-1,false));
+}
+return best;
+}else{ // minimize
+let best=1e9;
+for(let m of moves){
+let nb=cloneBoard(b);
+nb[m.ty][m.tx]=nb[m.y][m.x];
+nb[m.y][m.x]="";
+best=Math.min(best,minimax(nb,depth-1,true));
+}
+return best;
+}
+}
+
+function aiMove(){
+let moves=getMoves(board,false);
+let best=null;
+let bestScore=1e9;
+
+for(let m of moves){
+let nb=cloneBoard(board);
+nb[m.ty][m.tx]=nb[m.y][m.x];
+nb[m.y][m.x]="";
+let score=minimax(nb,2,true);
+if(score<bestScore){
+bestScore=score;
+best=m;
+}
+}
+
+if(best){
+  const captured = board[best.ty][best.tx];
+  board[best.ty][best.tx]=board[best.y][best.x];
+  board[best.y][best.x]="";
+
+  if(captured==="K"){
+    sfxWin();
+    document.getElementById("status").innerText="黑方獲勝！";
+    turn="gameover";
+    drawBoard();
+    return;
+  }
+}
+
+turn="red";
+document.getElementById("status").innerText="你的回合（紅方）";
+drawBoard();
+}
+
+// ========= UI =========
+
+canvas.onclick=e=>{
+if(turn!=="red") return;
+
+const rect = canvas.getBoundingClientRect();
+const clickX = e.clientX - rect.left;
+const clickY = e.clientY - rect.top;
+
+let c=Math.floor((clickX+cell/2-30)/cell);
+let r=Math.floor((clickY+cell/2-30)/cell);
+
+if(r<0||r>9||c<0||c>8) return;
+
+// 點同一顆棋子＝取消選取（避免「點一下就亂走」）
+if(selected && selected.x===c && selected.y===r){
+  selected=null;
+  possibleMoves=[];
+  drawBoard();
+  return;
+}
+
+if(selected){
+  if(validMove(selected.x,selected.y,c,r,board)){
+    const captured = board[r][c];
+    board[r][c]=board[selected.y][selected.x];
+    if(captured) sfxCapture(); else sfxMove();
+    board[selected.y][selected.x]="";
+
+    if(captured==="k"){
+      sfxWin();
+      document.getElementById("status").innerText="紅方獲勝！";
+      turn="gameover";
+      drawBoard();
+      return;
+    }
+
+    selected=null;
+    possibleMoves=[];
+    turn="black";
+    document.getElementById("status").innerText="AI 思考中...";
+    drawBoard();
+    setTimeout(aiMove,250);
+    return;
+  }
+
+  if(board[r][c] && isRed(board[r][c])){
+    selected={x:c,y:r};
+    sfxSelect();
+    possibleMoves=[];
+    for(let ty=0;ty<10;ty++){
+      for(let tx=0;tx<9;tx++){
+        if(validMove(c,r,tx,ty,board)) possibleMoves.push({x:tx,y:ty});
+      }
+    }
+  }else{
+    selected=null;
+    possibleMoves=[];
+  }
+
+}else if(board[r][c] && isRed(board[r][c])){
+  selected={x:c,y:r};
+    sfxSelect();
+  possibleMoves=[];
+  for(let ty=0;ty<10;ty++){
+    for(let tx=0;tx<9;tx++){
+      if(validMove(c,r,tx,ty,board)) possibleMoves.push({x:tx,y:ty});
+    }
+  }
+}
+
+drawBoard();
+};
+
+function resetGame(){initBoard();selected=null;possibleMoves=[];turn="red";drawBoard();}
+function startGame(){
+  document.getElementById("startScreen").style.display="none";
+  sfxWin();
+  resetGame();
+}
+
+initBoard();drawBoard();
+</script>
+</body>
+</html>
