@@ -46,9 +46,19 @@ canvas{
   border:6px solid #ffb347;
   border-radius:18px;
   box-shadow:0 8px 20px rgba(0,0,0,0.15);
+  width:min(94vw,540px);
+  height:auto;
+  max-height:78vh;
 }
-#status{margin:12px;font-size:20px;font-weight:bold;color:#7a3d00;}
-button{margin:10px;padding:12px 22px;border:none;border-radius:14px;background:#7dd3fc;font-size:18px;}
+#status{margin:10px auto;font-size:clamp(16px,4vw,20px);font-weight:bold;color:#7a3d00;padding:0 12px;}
+button{margin:10px;padding:12px 22px;border:none;border-radius:14px;background:#7dd3fc;font-size:clamp(16px,4vw,18px);} 
+.mainWrap{display:flex;flex-direction:column;align-items:center;padding:8px 8px 20px;} 
+@media (max-width:600px){
+  h1{font-size:clamp(24px,7vw,34px)!important; margin:8px 0;}
+  #startScreen h1{font-size:clamp(28px,8vw,42px);}
+  #startScreen p{font-size:clamp(16px,4.5vw,20px);padding:0 20px;}
+  #startBtn{padding:12px 24px;font-size:18px;}
+}
 canvas{
   background:#d8a45d;
   border:3px solid #5b3a1e;
@@ -63,11 +73,13 @@ button{margin:10px;padding:10px 20px;}
   <p>和電腦一起快樂下象棋！</p>
   <button id="startBtn" onclick="startGame()">開始遊戲</button>
 </div>
+<div class="mainWrap">
 <h1 style="color:#ff5a8a;">🌟 可愛象棋樂園 🌟</h1>
 <div id="status">你的回合（紅方）</div>
 <canvas id="board" width="540" height="600"></canvas>
 <br>
 <button onclick="resetGame()">重新開始</button>
+</div>
 
 <script>
 let audioCtx;
