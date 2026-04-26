@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>可愛象棋樂園</title>
 <style>
+:root{ --board-w:540px; }
+*{ box-sizing:border-box; }
 body{
   margin:0;
   font-family:"Comic Sans MS","Arial",sans-serif;
@@ -12,65 +14,52 @@ body{
   text-align:center;
   min-height:100vh;
 }
+body.mobile{ --board-w:min(92vw,420px); }
+body.desktop{ --board-w:min(70vw,540px); }
 #startScreen{
-  position:fixed;
-  inset:0;
+  position:fixed; inset:0; z-index:10;
   background:linear-gradient(180deg,#ffe8f3,#fff6c7);
-  display:flex;
-  flex-direction:column;
-  justify-content:center;
-  align-items:center;
-  z-index:10;
+  display:flex; flex-direction:column; justify-content:center; align-items:center;
+  padding:20px;
 }
-#startScreen h1{
-  font-size:42px;
-  color:#ff5a8a;
-  margin:0;
-}
-#startScreen p{
-  font-size:20px;
-  color:#6b4b4b;
-}
+#startScreen h1{ font-size:clamp(30px,8vw,48px); color:#ff5a8a; margin:0; }
+#startScreen p{ font-size:clamp(16px,4.5vw,22px); color:#6b4b4b; }
 #startBtn{
-  background:#ff8db3;
-  color:white;
-  border:none;
-  border-radius:20px;
-  padding:14px 28px;
-  font-size:20px;
-  cursor:pointer;
-  box-shadow:0 6px 0 #d96a93;
+  background:#ff8db3; color:white; border:none; border-radius:20px;
+  padding:14px 28px; font-size:20px; cursor:pointer; box-shadow:0 6px 0 #d96a93;
+}
+.mainWrap{
+  display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+  width:100%; max-width:700px; margin:0 auto; padding:8px 8px 20px;
 }
 canvas{
+  display:block;
+  width:var(--board-w);
+  aspect-ratio:9 / 10;
+  height:auto;
   background:#fff2c9;
   border:6px solid #ffb347;
   border-radius:18px;
   box-shadow:0 8px 20px rgba(0,0,0,0.15);
-  width:min(94vw,540px);
-  height:auto;
-  max-height:78vh;
 }
-#status{margin:10px auto;font-size:clamp(16px,4vw,20px);font-weight:bold;color:#7a3d00;padding:0 12px;}
-button{margin:10px;padding:12px 22px;border:none;border-radius:14px;background:#7dd3fc;font-size:clamp(16px,4vw,18px);} 
-.mainWrap{display:flex;flex-direction:column;align-items:center;padding:8px 8px 20px;} 
-@media (max-width:600px){
-  h1{font-size:clamp(24px,7vw,34px)!important; margin:8px 0;}
-  #startScreen h1{font-size:clamp(28px,8vw,42px);}
-  #startScreen p{font-size:clamp(16px,4.5vw,20px);padding:0 20px;}
-  #startBtn{padding:12px 24px;font-size:18px;}
+#status{
+  margin:8px auto;
+  font-size:clamp(16px,4vw,20px);
+  font-weight:bold;
+  color:#7a3d00;
+  min-height:28px;
 }
-canvas{
-  background:#d8a45d;
-  border:3px solid #5b3a1e;
+button{
+  margin:10px; padding:12px 22px; border:none; border-radius:14px;
+  background:#7dd3fc; font-size:clamp(16px,4vw,18px);
 }
-#status{margin:10px;font-size:18px;font-weight:bold;}
-button{margin:10px;padding:10px 20px;}
 </style>
 </head>
 <body>
 <div id="startScreen">
   <h1>🐼 可愛象棋樂園 🐰</h1>
   <p>和電腦一起快樂下象棋！</p>
+  <div style="margin-top:8px;font-size:14px;color:#8b6b6b;">Version v1.0</div>
   <button id="startBtn" onclick="startGame()">開始遊戲</button>
 </div>
 <div class="mainWrap">
@@ -101,6 +90,8 @@ function sfxMove(){playTone(523,0.12);}
 function sfxCapture(){playTone(392,0.18); setTimeout(()=>playTone(262,0.18),120);}
 function sfxWin(){playTone(784,0.15); setTimeout(()=>playTone(988,0.18),150); setTimeout(()=>playTone(1175,0.25),320);}
 const canvas=document.getElementById("board");
+const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth < 700;
+document.body.classList.add(isMobile ? "mobile" : "desktop");
 const ctx=canvas.getContext("2d");
 const cell=60;
 
