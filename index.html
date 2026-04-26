@@ -59,7 +59,7 @@ button{
 <div id="startScreen">
   <h1>🐼 可愛象棋樂園 🐰</h1>
   <p>和電腦一起快樂下象棋！</p>
-  <div style="margin-top:8px;font-size:14px;color:#8b6b6b;">Version v1.0</div>
+  <div style="margin-top:8px;font-size:14px;color:#8b6b6b;">Version v1.1</div>
   <button id="startBtn" onclick="startGame()">開始遊戲</button>
 </div>
 <div class="mainWrap">
@@ -376,80 +376,95 @@ drawBoard();
 }
 
 // ========= UI =========
+function getCanvasPos(e){
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  let clientX, clientY;
 
-canvas.onclick=e=>{
-if(turn!=="red") return;
+  if(e.touches && e.touches.length){
+    clientX = e.touches[0].clientX;
+    clientY = e.touches[0].clientY;
+  } else {
+    clientX = e.clientX;
+    clientY = e.clientY;
+  }
 
-const rect = canvas.getBoundingClientRect();
-const clickX = e.clientX - rect.left;
-const clickY = e.clientY - rect.top;
-
-let c=Math.floor((clickX+cell/2-30)/cell);
-let r=Math.floor((clickY+cell/2-30)/cell);
-
-if(r<0||r>9||c<0||c>8) return;
-
-// 點同一顆棋子＝取消選取（避免「點一下就亂走」）
-if(selected && selected.x===c && selected.y===r){
-  selected=null;
-  possibleMoves=[];
-  drawBoard();
-  return;
+  return {
+    x: (clientX - rect.left) * scaleX,
+    y: (clientY - rect.top) * scaleY
+  };
 }
 
-if(selected){
-  if(validMove(selected.x,selected.y,c,r,board)){
-    const captured = board[r][c];
-    board[r][c]=board[selected.y][selected.x];
-    if(captured) sfxCapture(); else sfxMove();
-    board[selected.y][selected.x]="";
+function handleInput(px, py){
+  if(turn !== "red") return;
 
-    if(captured==="k"){
-      sfxWin();
-      document.getElementById("status").innerText="紅方獲勝！";
-      turn="gameover";
-      drawBoard();
-      return;
-    }
+  let c = Math.floor((px + cell/2 - 30) / cell);
+  let r = Math.floor((py + cell/2 - 30) / cell);
+  if(r < 0 || r > 9 || c < 0 || c > 8) return;
 
-    selected=null;
-    possibleMoves=[];
-    turn="black";
-    document.getElementById("status").innerText="AI 思考中...";
+  if(selected && selected.x === c && selected.y === r){
+    selected = null;
+    possibleMoves = [];
     drawBoard();
-    setTimeout(aiMove,250);
     return;
   }
 
-  if(board[r][c] && isRed(board[r][c])){
-    selected={x:c,y:r};
-    sfxSelect();
-    possibleMoves=[];
-    for(let ty=0;ty<10;ty++){
-      for(let tx=0;tx<9;tx++){
-        if(validMove(c,r,tx,ty,board)) possibleMoves.push({x:tx,y:ty});
+  if(selected){
+    if(validMove(selected.x, selected.y, c, r, board)){
+      const captured = board[r][c];
+      board[r][c] = board[selected.y][selected.x];
+      if(captured) sfxCapture(); else sfxMove();
+      board[selected.y][selected.x] = "";
+
+      if(captured === "k"){
+        sfxWin();
+        document.getElementById("status").innerText = "紅方獲勝！";
+        turn = "gameover";
+        drawBoard();
+        return;
       }
+
+      selected = null;
+      possibleMoves = [];
+      turn = "black";
+      document.getElementById("status").innerText = "AI 思考中...";
+      drawBoard();
+      setTimeout(aiMove, 250);
+      return;
     }
-  }else{
-    selected=null;
-    possibleMoves=[];
+
+    if(board[r][c] && isRed(board[r][c])){
+      selected = {x:c,y:r};
+      sfxSelect();
+      possibleMoves = [];
+      for(let ty=0;ty<10;ty++) for(let tx=0;tx<9;tx++) if(validMove(c,r,tx,ty,board)) possibleMoves.push({x:tx,y:ty});
+    } else {
+      selected = null;
+      possibleMoves = [];
+    }
+  } else if(board[r][c] && isRed(board[r][c])){
+    selected = {x:c,y:r};
+    sfxSelect();
+    possibleMoves = [];
+    for(let ty=0;ty<10;ty++) for(let tx=0;tx<9;tx++) if(validMove(c,r,tx,ty,board)) possibleMoves.push({x:tx,y:ty});
   }
 
-}else if(board[r][c] && isRed(board[r][c])){
-  selected={x:c,y:r};
-    sfxSelect();
-  possibleMoves=[];
-  for(let ty=0;ty<10;ty++){
-    for(let tx=0;tx<9;tx++){
-      if(validMove(c,r,tx,ty,board)) possibleMoves.push({x:tx,y:ty});
-    }
-  }
+  drawBoard();
 }
 
-drawBoard();
-};
+canvas.addEventListener("click", (e) => {
+  const pos = getCanvasPos(e);
+  handleInput(pos.x, pos.y);
+});
 
-function resetGame(){initBoard();selected=null;possibleMoves=[];turn="red";drawBoard();}
+canvas.addEventListener("touchstart", (e) => {
+  e.preventDefault();
+  const pos = getCanvasPos(e);
+  handleInput(pos.x, pos.y);
+}, { passive:false });
+
+function resetGame(){initBoard();selected=null;possibleMoves=[];turn="red";document.getElementById("status").innerText="你的回合（紅方）";drawBoard();}
 function startGame(){
   document.getElementById("startScreen").style.display="none";
   sfxWin();
